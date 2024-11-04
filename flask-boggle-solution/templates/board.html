@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head> <meta charset="UTF-8"> <title>Boggle</title> <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"> 
+    <style> body { padding: 20px; } table { margin: 0 auto; } td { width: 50px; height: 50px; text-align: center; font-size: 24px; border: 1px solid #000; } </style> 
+  </head> 
+  <body class="text-center"> 
+    <div class="container"> 
+      <h1 class="my-4">Boggle</h1> 
+      <table class="mb-4"> {% for row in board %} <tr> {% for letter in row %} 
+        <td>{{ letter }}</td> {% endfor %} </tr> {% endfor %} 
+      </table> 
+        <form id="guess-form" class="mb-4"> 
+          <input type="text" id="word-guess" required class="form-control mb-2" placeholder="Enter your word"> 
+          <button type="submit" class="btn btn-primary">Submit</button> 
+        </form> 
+        <form id="create-board-form"> 
+          <input type="number" id="board-size" min="2" max="10" value="5">
+          <button id="hint-btn" class="btn btn-info">Get Hint</button>
+        </form>
+        <div id="message" class="mb-4"></div> 
+        <p>Score: <span id="score">0</span></p> 
+        <p>Time left: <span id="timer">60</span> seconds</p> 
+        </div> 
+        <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script> 
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> 
+        <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script> 
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> 
+        <script>
+            let score = 0;
+            let timeLeft = 60;
+
+            // Timer function
+            let timer = setInterval(function() {
+                timeLeft -= 1;
+                document.querySelector("#timer").innerText = timeLeft;
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    document.querySelector("#guess-form").style.display = "none";
+                    document.querySelector("#message").innerText = "Time's up!";
+                    // Send the final score to the server
+                    axios.post('/submit-score', { score: score })
+                        .then(response => {
+                            console.log("Stats updated:", response.data);
+                        })
+                        .catch(error => {
+                            console.error("Error updating stats:", error);
+                        });
+                }
+            }, 1000);
+
+            // Handle form submission
+            document.querySelector("#guess-form").onsubmit = async function(evt) {
+                evt.preventDefault();
+                let word = document.querySelector("#word-guess").value;
+                try {
+                    const response = await axios.post("/check-word", { word: word });
+                    const result = response.data.result;
+                    document.querySelector("#message").innerText = result;
+
+                    if (result === "ok") {
+                        score += word.length;
+                        document.querySelector("#score").innerText = score;
+                    }
+                } catch (error) {
+                    console.error("Error checking word:", error);
+                }
+            };
+
+            document.querySelector("#custom-board-btn").onclick = async function() {
+                const size = document.querySelector("#board-size").value;
+                try {
+                    const response = await axios.post("/custom-board", { size: size });
+                    // Update the board on the page with the new custom board
+                    document.querySelector("#board").innerHTML = response.data;
+                } catch (error) {
+                    console.error("Error creating custom board:", error);
+                }
+            };
+
+            document.querySelector("#hint-btn").onclick = async function() {
+                try {
+                    const response = await axios.get("/hint");
+                    const hint = response.data.hint;
+                    document.querySelector("#hint").innerText = hint;
+                } catch (error) {
+                    console.error("Error getting hint:", error);
+                }
+            };
+
+            function renderBoard(board) {
+                const boardEl = document.querySelector("#board");
+                boardEl.innerHTML = "";
+                for (let row of board) {
+                    let tr = document.createElement("tr");
+                    for (let letter of row) {
+                        let td = document.createElement("td");
+                        td.innerText = letter;
+                        tr.appendChild(td);
+                    }
+                    boardEl.appendChild(tr);
+                }
+            }
+
+            
+            function updateStats() {
+                axios.get('/get-stats')
+                    .then(response => {
+                        document.querySelector("#games-played").innerText = response.data.games_played;
+                        document.querySelector("#high-score").innerText = response.data.high_score;
+                    })
+                    .catch(error => {
+                        console.error("Error getting stats:", error);
+                    });
+            }
+
+            // Initial stats update
+            updateStats();
+        </script>
+    </div>
+  </body> 
+</html>
